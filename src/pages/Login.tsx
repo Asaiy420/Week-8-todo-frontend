@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api";
 
 export function Login() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -15,9 +21,36 @@ export function Login() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login Form Submitted:", formData);
+    setError(null);
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, formData);
+
+      if (response.data) {
+        // Store user data in localStorage
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            _id: response.data._id,
+            username: response.data.username,
+            email: response.data.email,
+          })
+        );
+
+        // Redirect to todo page
+        navigate("/todo");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err.response?.data);
+      setError(
+        err.response?.data?.message || "Failed to login. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,7 +58,14 @@ export function Login() {
       <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
         Welcome Back
       </h2>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <label
             htmlFor="email"
@@ -40,6 +80,7 @@ export function Login() {
             onChange={handleChange}
             className="w-full px-4 py-3 rounded-lg bg-gray-900/50 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 outline-none"
             placeholder="you@example.com"
+            required
           />
         </div>
         <div className="space-y-2">
@@ -56,6 +97,7 @@ export function Login() {
             onChange={handleChange}
             className="w-full px-4 py-3 rounded-lg bg-gray-900/50 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 outline-none"
             placeholder="••••••••"
+            required
           />
         </div>
         <div className="flex items-center justify-between text-sm">
@@ -75,11 +117,12 @@ export function Login() {
         </div>
         <button
           type="submit"
-          className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-500 hover:to-blue-600 transform transition-all duration-200 hover:scale-[1.02] focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 focus:ring-offset-gray-800"
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-500 hover:to-blue-600 transform transition-all duration-200 hover:scale-[1.02] focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Sign In
+          {loading ? "Signing in..." : "Sign In"}
         </button>
-        <p className="text-center text-sm text-gray-400 mt-4">
+        <p className="text-center text-sm text-gray-400">
           Don't have an account?{" "}
           <Link
             to="/signup"
