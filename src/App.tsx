@@ -2,6 +2,7 @@ import { Routes, Route, Link } from "react-router-dom";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
+import { Todo } from "./pages/Todo";
 
 function App() {
   return (
@@ -14,6 +15,12 @@ function App() {
             className="text-blue-400 hover:text-blue-300 transition-colors"
           >
             Home
+          </Link>
+          <Link
+            to="/todo"
+            className="text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            Todo
           </Link>
           <Link
             to="/signup"
@@ -31,6 +38,7 @@ function App() {
 
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/todo" element={<Todo />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
         </Routes>
