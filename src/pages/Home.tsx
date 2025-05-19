@@ -5,7 +5,7 @@ export function Home() {
     <div className="max-w-4xl mx-auto">
       <div className="text-center space-y-6 mb-12">
         <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient">
-          Welcome to TaskFlow
+          Welcome to Daily Tasks
         </h1>
         <p className="text-xl text-gray-300 max-w-2xl mx-auto">
           Your ultimate productivity companion. Organize tasks, boost

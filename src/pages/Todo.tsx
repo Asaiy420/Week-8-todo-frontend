@@ -145,7 +145,7 @@ export function Todo() {
         completed: !completed,
       });
 
-      setTodos(todos.map((t) => (t._id === todoId ? response.data : t)));
+      setTodos(todos.map((t) => (t._id === todoId ? response.data : t))); // Update the todo in the todos array
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
       setError(error.response?.data?.error || "Failed to update todo");
@@ -157,6 +157,7 @@ export function Todo() {
 
   const deleteTodo = async (todoId: string) => {
     if (!user?._id) {
+      // if user is not logged in, set error
       setError("Please log in to delete todos");
       return;
     }
