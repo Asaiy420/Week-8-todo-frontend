@@ -23,7 +23,7 @@ interface User {
   email: string;
 }
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "https://week-7-api-5dfw.onrender.com/api";
 
 export function Todo() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
