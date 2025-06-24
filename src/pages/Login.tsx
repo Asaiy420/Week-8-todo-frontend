@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "http://localhost:3000/api";
 
 export function Login() {
   const navigate = useNavigate();
@@ -29,17 +29,10 @@ export function Login() {
     try {
       const response = await axios.post(`${API_URL}/auth/login`, formData);
 
-      if (response.data) {
-        // Store user data in localStorage
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            _id: response.data._id,
-            username: response.data.username,
-            email: response.data.email,
-          })
-        );
-
+      if (response.data && response.data.data) {
+        // Store token and user in localStorage
+        localStorage.setItem("token", response.data.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.data.user));
         // Redirect to todo page
         navigate("/todo");
       }
