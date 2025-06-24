@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "http://localhost:3000/api";
 
 export function Signup() {
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ export function Signup() {
 
       console.log("Sending signup data:", signupData);
 
-      const response = await axios.post(`${API_URL}/auth/sign-up`, signupData);
+      const response = await axios.post(`${API_URL}/auth/register`, signupData);
 
       console.log("Signup response:", response.data);
 
