@@ -3,15 +3,17 @@ import axios, { AxiosError } from "axios";
 import { Pencil, Trash2 } from "lucide-react";
 
 interface TodoItem {
+  _id: string;
   todoId: number;
   title: string;
   description: string;
-  hasCompleted: boolean;
+  hasCompleted?: boolean;
   dueDate: string;
+  userId: string;
 }
 
 interface ErrorResponse {
-  error: string;
+  error?: string;
   message?: string;
 }
 
@@ -40,14 +42,17 @@ export function Todo() {
     dueDate: "",
   });
 
+  // Get token from localStorage
+  const getToken = () => localStorage.getItem("token");
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const storedUser = localStorage.getItem("user");
-        if (storedUser) {
+        const token = localStorage.getItem("token");
+        if (storedUser && token) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
-          // Fetch todos after setting user
           fetchTodos();
         } else {
           setError("Please log in to manage your todos");
@@ -56,20 +61,28 @@ export function Todo() {
         console.log("Error when checking auth", error);
       }
     };
-
     checkAuth();
+    // eslint-disable-next-line
   }, []);
 
   const fetchTodos = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/todo`);
+      const token = getToken();
+      const response = await axios.get(`${API_URL}/todo`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setTodos(response.data.data.todo || []);
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
-      setError(error.response?.data?.error || "Failed to fetch todos");
-      console.error("Error fetching todos:", error.response?.data);
+      setError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to fetch todos"
+      );
     } finally {
       setLoading(false);
     }
@@ -89,56 +102,36 @@ export function Todo() {
       setError("Please provide all the required fields.");
       return;
     }
-
     try {
       setLoading(true);
       setError(null);
-
+      const token = getToken();
       const todoData = {
         title: newTodo.title.trim(),
         description: newTodo.description.trim(),
-        hasCompleted: false,
         dueDate: newTodo.dueDate,
+        userId: user._id,
       };
-
-      console.log("Sending todo data:", todoData);
-
-      const response = await axios.post<{ data: { todo: TodoItem[] } }>(
-        `${API_URL}/todo`,
-        todoData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("Server response:", response.data);
-
+      const response = await axios.post(`${API_URL}/todo`, todoData, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      // The backend returns a single todo object
       if (response.data && response.data.data && response.data.data.todo) {
-        setTodos(response.data.data.todo);
+        setTodos([...todos, response.data.data.todo]);
         setNewTodo({ title: "", description: "", dueDate: "" });
       } else {
         throw new Error("Invalid response from server");
       }
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
-      console.error("Error details:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-
-      if (
-        error.response?.status === 500 &&
-        error.response?.data?.error?.includes("ObjectId")
-      ) {
-        setError("Authentication error. Please log in again.");
-      } else {
-        setError(
-          error.response?.data?.error || "Failed to add todo. Please try again."
-        );
-      }
+      setError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to add todo. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -149,7 +142,7 @@ export function Todo() {
     setEditFields({
       title: todo.title,
       description: todo.description,
-      dueDate: todo.dueDate,
+      dueDate: todo.dueDate.slice(0, 10), // for input type="date"
     });
   };
 
@@ -172,26 +165,46 @@ export function Todo() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.patch(
-        `${API_URL}/todo/${editingTodo.todoId}`,
+      const token = getToken();
+      const response = await axios.put(
+        `${API_URL}/todo/${editingTodo._id}`,
         {
           title: editFields.title.trim(),
           description: editFields.description.trim(),
           dueDate: editFields.dueDate,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
-      setTodos(response.data.data.todo);
-      setEditingTodo(null);
-      setEditFields({ title: "", description: "", dueDate: "" });
+      // Update the todo in the list
+      if (response.data && response.data.data && response.data.data.todo) {
+        setTodos(
+          todos.map((t) =>
+            t._id === editingTodo._id ? response.data.data.todo : t
+          )
+        );
+        setEditingTodo(null);
+        setEditFields({ title: "", description: "", dueDate: "" });
+      } else {
+        throw new Error("Invalid response from server");
+      }
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
-      setError(error.response?.data?.error || "Failed to update todo");
+      setError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to update todo"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleTodo = async (todoId: number, hasCompleted: boolean) => {
+  const toggleTodo = async (todoId: string, hasCompleted: boolean) => {
     if (!user?._id) {
       setError("Please log in to update todos");
       return;
@@ -199,34 +212,57 @@ export function Todo() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.patch(`${API_URL}/todo/${todoId}`, {
-        hasCompleted: !hasCompleted,
-      });
-      setTodos(response.data.data.todo);
+      const token = getToken();
+      // If you want to support hasCompleted, add it to your backend and model
+      const response = await axios.put(
+        `${API_URL}/todo/${todoId}`,
+        { hasCompleted: !hasCompleted },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data && response.data.data && response.data.data.todo) {
+        setTodos(
+          todos.map((t) => (t._id === todoId ? response.data.data.todo : t))
+        );
+      }
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
-      setError(error.response?.data?.error || "Failed to update todo");
+      setError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to update todo"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteTodo = async (todoId: number) => {
+  const deleteTodo = async (todoId: string) => {
     if (!user?._id) {
-      // if user is not logged in, set error
       setError("Please log in to delete todos");
       return;
     }
-
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.delete(`${API_URL}/todo/${todoId}`);
-      setTodos(response.data.data.todo);
+      const token = getToken();
+      await axios.delete(`${API_URL}/todo/${todoId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setTodos(todos.filter((todo) => todo._id !== todoId));
     } catch (err) {
       const error = err as AxiosError<ErrorResponse>;
-      setError(error.response?.data?.error || "Failed to delete todo");
-      console.error("Error deleting todo:", error.response?.data);
+      setError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to delete todo"
+      );
     } finally {
       setLoading(false);
     }
@@ -370,11 +406,13 @@ export function Todo() {
           ) : (
             todos.map((todo) => (
               <div
-                key={todo.todoId}
+                key={todo._id}
                 className="group flex items-center gap-4 p-4 bg-gray-900/50 rounded-xl border border-gray-700/50 hover:border-blue-500/50 transition-all duration-200"
               >
                 <button
-                  onClick={() => toggleTodo(todo.todoId, todo.hasCompleted)}
+                  onClick={() =>
+                    toggleTodo(todo._id, todo.hasCompleted || false)
+                  }
                   disabled={loading}
                   className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
                     todo.hasCompleted
@@ -416,7 +454,7 @@ export function Todo() {
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Due: {todo.dueDate}
+                    Due: {todo.dueDate.slice(0, 10)}
                   </p>
                 </div>
                 <button
@@ -427,7 +465,7 @@ export function Todo() {
                   <Pencil className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => deleteTodo(todo.todoId)}
+                  onClick={() => deleteTodo(todo._id)}
                   disabled={loading}
                   className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
